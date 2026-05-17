@@ -158,4 +158,4 @@ Vercel Functions tienen timeout de 10-60s. Un crawl completo del mes (~8000 lici
 
 - **Fuente:** API pública OCDS de Mercado Público (`api.mercadopublico.cl/APISOCDS/OCDS/...`)
 - **Sin ticket ni autenticación** — endpoint abierto, estándar internacional Open Contracting Data Standard (OCDS)
-- **Disclaimer:** las alertas son señales objetivas calculadas sobre datos públicos. No constituyen acusación de irregularidad. Los organismos pueden ejercer derecho a réplica vía `contacto@licitacheck.cl`.
+- **Disclaimer:** las alertas son señales objetivas calculadas sobre datos públicos. No constituyen acusación de irregularidad. Los organismos pueden ejercer derecho a réplica vía `contactolicitacheck@gmail.com`.
