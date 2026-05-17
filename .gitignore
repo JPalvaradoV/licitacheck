@@ -1,0 +1,29 @@
+# SECRETOS / API KEYS — NUNCA COMMITEAR
+.claude/
+.env
+.env.*
+*.key
+*.pem
+
+# Datos crudos pesados (no commitear)
+*.xlsx
+~$*.xlsx
+
+# Logs del crawler (no commitear)
+agentes/crawler.log
+agentes/crawler.err.log
+# Nota: agentes/.crawler_cache.csv SÍ se commitea para que GitHub Actions
+# no haga bulk re-fetch en cada corrida. Es la fuente de verdad acumulada.
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

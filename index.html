@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LicitaCheck — Análisis de Licitaciones Públicas</title>
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --critico:    #B71C1C;
+      --critico-bg: #FEE2E2;
+      --alto:       #D84315;
+      --alto-bg:    #FFEDE8;
+      --medio:      #F57C00;
+      --medio-bg:   #FFF3E0;
+      --bajo:       #1565C0;
+      --bajo-bg:    #E3F2FD;
+      --border:     #EBEBEB;
+      --text:       #111827;
+      --muted:      #6B7280;
+      --sidebar-w:  272px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #fff;
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ──────────────────────────────────────────────── */
+    #header {
+      height: 60px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 20px;
+      position: relative;
+      z-index: 10;
+      background: #fff;
+    }
+
+    #logo h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    #logo p {
+      font-size: 10.5px;
+      color: var(--muted);
+      font-weight: 400;
+      letter-spacing: 0.1px;
+    }
+
+    #header-divider {
+      width: 1px; height: 28px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .stat-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 5px 14px;
+      border-radius: 8px;
+      cursor: default;
+      flex-shrink: 0;
+    }
+    .stat-pill .n { font-size: 16px; font-weight: 700; line-height: 1.1; }
+    .stat-pill .l { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; opacity: 0.75; margin-top: 1px; }
+    .sp-total   { background: #F9FAFB; color: #374151; }
+    .sp-critico { background: var(--critico-bg); color: var(--critico); }
+    .sp-alto    { background: var(--alto-bg);    color: var(--alto);    }
+    .sp-medio   { background: var(--medio-bg);   color: var(--medio);   }
+    .sp-bajo    { background: var(--bajo-bg);     color: var(--bajo);    }
+
+    #search-wrap {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      width: 260px;
+      transition: border-color 0.15s;
+    }
+    #search-wrap:focus-within { border-color: #6366F1; }
+    #search-wrap svg { flex-shrink: 0; }
+    #q {
+      border: none; outline: none;
+      font-family: inherit; font-size: 12.5px;
+      color: var(--text); background: transparent; width: 100%;
+    }
+    #q::placeholder { color: #9CA3AF; }
+
+    /* ── BODY ────────────────────────────────────────────────── */
+    #body { display: flex; height: calc(100vh - 60px); }
+
+    /* ── SIDEBAR ─────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 18px 14px 24px;
+      background: #FAFAFA;
+    }
+    #sidebar::-webkit-scrollbar { width: 4px; }
+    #sidebar::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
+
+    .section { margin-bottom: 18px; }
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #9CA3AF;
+      margin-bottom: 8px;
+    }
+
+    .risk-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 7px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      text-align: left;
+      transition: opacity 0.15s, transform 0.1s;
+      margin-bottom: 5px;
+    }
+    .risk-btn:hover { transform: translateX(2px); }
+    .risk-btn .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .risk-btn .cnt { margin-left: auto; font-size: 11px; font-weight: 600; }
+    .risk-btn.off { opacity: 0.35; }
+
+    .rb-critico { background: var(--critico-bg); color: var(--critico); }
+    .rb-critico .dot { background: var(--critico); }
+    .rb-alto    { background: var(--alto-bg);    color: var(--alto);    }
+    .rb-alto    .dot { background: var(--alto); }
+    .rb-medio   { background: var(--medio-bg);   color: var(--medio);   }
+    .rb-medio   .dot { background: var(--medio); }
+    .rb-bajo    { background: var(--bajo-bg);     color: var(--bajo);    }
+    .rb-bajo    .dot { background: var(--bajo); }
+
+    select {
+      width: 100%;
+      padding: 7px 9px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+      cursor: pointer;
+    }
+    select:focus { border-color: #6366F1; }
+
+    #reset-btn {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1.5px solid #E5E7EB;
+      background: #fff;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      margin-top: 4px;
+      transition: background 0.15s;
+    }
+    #reset-btn:hover { background: #F9FAFB; }
+
+    .count-info {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid #EBEBEB;
+    }
+    .count-info .big { font-size: 13px; font-weight: 600; color: var(--text); }
+    .count-info .sub { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+
+    /* ── GRAPH AREA ───────────────────────────────────────────── */
+    #graph-wrap {
+      flex: 1;
+      position: relative;
+      background: #fff;
+      overflow: hidden;
+    }
+    #network { width: 100%; height: 100%; }
+
+    /* Loading */
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      gap: 14px;
+    }
+    #loading h2 { font-size: 15px; font-weight: 600; color: #374151; }
+    #loading p  { font-size: 12.5px; color: #9CA3AF; }
+    .spinner {
+      width: 34px; height: 34px;
+      border: 3px solid #F3F4F6;
+      border-top-color: #6366F1;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Legend */
+    #legend {
+      position: absolute;
+      bottom: 48px;
+      left: 16px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 13px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .leg-title { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9CA3AF; margin-bottom: 7px; }
+    .leg-row { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #374151; margin-bottom: 4px; }
+    .leg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .leg-org-dot { width: 9px; height: 9px; border-radius: 50%; background: #CFD8DC; border: 1.5px solid #90A4AE; flex-shrink: 0; }
+
+    /* Status */
+    #status {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 5px 11px;
+      font-size: 11px;
+      color: var(--muted);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    /* ── DETAIL PANEL ─────────────────────────────────────────── */
+    #detail {
+      position: absolute;
+      top: 0; right: -360px;
+      width: 340px;
+      height: 100%;
+      background: #fff;
+      border-left: 1px solid var(--border);
+      box-shadow: -6px 0 20px rgba(0,0,0,0.07);
+      transition: right 0.28s cubic-bezier(0.4,0,0.2,1);
+      overflow-y: auto;
+      z-index: 20;
+      padding: 22px 20px 32px;
+    }
+    #detail.open { right: 0; }
+    #detail::-webkit-scrollbar { width: 4px; }
+    #detail::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
+
+    #detail-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      background: #F9FAFB;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--muted);
+      transition: background 0.1s;
+    }
+    #detail-close:hover { background: #F3F4F6; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 11.5px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .badge-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .badge-critico { background: var(--critico-bg); color: var(--critico); }
+    .badge-alto    { background: var(--alto-bg);    color: var(--alto);    }
+    .badge-medio   { background: var(--medio-bg);   color: var(--medio);   }
+    .badge-bajo    { background: var(--bajo-bg);     color: var(--bajo);    }
+
+    .score-num { font-size: 52px; font-weight: 700; line-height: 1; }
+    .score-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9CA3AF; margin-bottom: 10px; }
+
+    .score-bar-bg { height: 5px; background: #F3F4F6; border-radius: 99px; margin-bottom: 16px; overflow: hidden; }
+    .score-bar-fg { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+
+    .detail-id { font-size: 11px; color: #9CA3AF; margin-bottom: 12px; }
+    .detail-name { font-size: 13.5px; font-weight: 600; line-height: 1.45; color: #111827; margin-bottom: 16px; }
+
+    .drow { margin-bottom: 11px; }
+    .dlbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9CA3AF; margin-bottom: 2px; }
+    .dval { font-size: 12.5px; color: #374151; line-height: 1.4; }
+
+    .divider { height: 1px; background: #F3F4F6; margin: 16px 0; }
+
+    .flags-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.7px; color: #9CA3AF; margin-bottom: 9px; }
+    .flag-card {
+      display: flex;
+      gap: 10px;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: #FFF5F5;
+      border: 1px solid #FECACA;
+      margin-bottom: 7px;
+    }
+    .flag-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .flag-name { font-size: 12px; font-weight: 600; color: #B91C1C; margin-bottom: 2px; }
+    .flag-desc { font-size: 11.5px; color: #374151; line-height: 1.4; }
+    .no-flags { font-size: 12px; color: #6B7280; font-style: italic; padding: 8px 0; }
+
+    /* Organismo detail */
+    .org-header { text-align: center; padding: 12px 0 20px; }
+    .org-icon { width: 54px; height: 54px; background: #F1F5F9; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 10px; }
+    .org-name { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; line-height: 1.35; }
+    .org-sub  { font-size: 12px; color: var(--muted); }
+    .org-score-big { font-size: 40px; font-weight: 700; color: var(--text); margin: 14px 0 2px; }
+    .org-score-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9CA3AF; }
+
+    .risk-bar-row { margin-bottom: 9px; }
+    .risk-bar-head { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 3px; }
+    .risk-bar-bg { height: 4px; background: #F3F4F6; border-radius: 99px; overflow: hidden; }
+    .risk-bar-fg { height: 100%; border-radius: 99px; }
+
+    /* ── Review del agente IA (alertas suprimidas y contexto) ─ */
+    .agent-block {
+      margin: 14px 0 4px;
+      padding: 11px 12px;
+      background: #F5F3FF;
+      border: 1px solid #DDD6FE;
+      border-radius: 8px;
+    }
+    .agent-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #6D28D9;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .agent-tag {
+      display: inline-block;
+      margin-left: auto;
+      padding: 1px 7px;
+      border-radius: 99px;
+      background: #EDE9FE;
+      color: #6D28D9;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: none;
+    }
+    .agent-explain {
+      font-size: 11.5px;
+      color: #4C1D95;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+    .agent-suppressed-list {
+      margin-top: 9px;
+      padding-top: 9px;
+      border-top: 1px solid #DDD6FE;
+    }
+    .agent-suppressed-list .als-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6D28D9;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+    }
+    .flag-card.suppressed {
+      background: #F9FAFB;
+      border-color: #E5E7EB;
+      opacity: 0.7;
+    }
+    .flag-card.suppressed .flag-name {
+      color: #6B7280;
+      text-decoration: line-through;
+    }
+    .flag-card.suppressed .flag-desc {
+      color: #9CA3AF;
+    }
+    .org-monto {
+      margin-top: 10px;
+      padding: 9px 11px;
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 7px;
+    }
+    .org-monto-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #15803D;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .org-monto-val {
+      font-size: 14px;
+      font-weight: 700;
+      color: #14532D;
+      font-variant-numeric: tabular-nums;
+    }
+    .org-monto-sub {
+      font-size: 10.5px;
+      color: #16A34A;
+      margin-top: 2px;
+    }
+
+    /* ── Disclaimer + Derecho a réplica ──────────────────────── */
+    .disclaimer {
+      margin-top: 18px;
+      padding: 11px 12px;
+      background: #F9FAFB;
+      border-left: 3px solid #9CA3AF;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #4B5563;
+      line-height: 1.55;
+      font-style: italic;
+    }
+
+    /* ── Tarjeta de contacto (sidebar) ───────────────────────── */
+    .contact-card {
+      padding: 11px 12px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #EEF2FF 0%, #F5F7FF 100%);
+      border: 1px solid #C7D2FE;
+      margin-bottom: 18px;
+    }
+    .contact-card .ct-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #3730A3;
+      margin-bottom: 4px;
+    }
+    .contact-card .ct-body {
+      font-size: 10.5px;
+      color: #4338CA;
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+    .contact-card .ct-link {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #4338CA;
+      text-decoration: none;
+      padding: 5px 9px;
+      background: #fff;
+      border: 1px solid #C7D2FE;
+      border-radius: 5px;
+      transition: background 0.15s;
+    }
+    .contact-card .ct-link:hover { background: #EEF2FF; }
+
+    /* ── Tarjeta de contacto (panel organismo) ───────────────── */
+    .contact-card-org {
+      margin-top: 14px;
+      padding: 13px 14px;
+      border-radius: 8px;
+      background: #EEF2FF;
+      border: 1px solid #C7D2FE;
+    }
+    .contact-card-org .cco-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #3730A3;
+      margin-bottom: 6px;
+    }
+    .contact-card-org .cco-body {
+      font-size: 11px;
+      color: #4338CA;
+      line-height: 1.5;
+      margin-bottom: 9px;
+    }
+    .contact-card-org .cco-btn {
+      display: inline-block;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #fff;
+      background: #4F46E5;
+      text-decoration: none;
+      padding: 7px 12px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .contact-card-org .cco-btn:hover { background: #4338CA; }
+
+    /* ── Glosario de alertas ─────────────────────────────────── */
+    .glosario-intro {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .glosario-item {
+      display: flex;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid var(--border);
+      margin-bottom: 5px;
+    }
+    .glosario-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      line-height: 1.2;
+    }
+    .glosario-content { flex: 1; min-width: 0; }
+    .glosario-name {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .glosario-desc {
+      font-size: 10.5px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────── -->
+<div id="header">
+  <div id="logo">
+    <h1>LICITACHECK</h1>
+    <p>Detección de alertas en Contrataciones Públicas · Chile</p>
+  </div>
+  <div id="header-divider"></div>
+  <div id="stats-chips" style="display:flex;gap:7px;"></div>
+  <div id="search-wrap">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="q" placeholder="Buscar por licitación, organismo, categoría…">
+  </div>
+</div>
+
+<!-- ── BODY ───────────────────────────────────────────────────── -->
+<div id="body">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <div class="contact-card">
+      <div class="ct-title">¿Representas a un organismo?</div>
+      <div class="ct-body">Si una alerta sobre tu institución requiere contexto o aclaración, ejerce tu derecho a réplica:</div>
+      <a class="ct-link" href="mailto:contacto@licitacheck.cl?subject=Derecho%20a%20r%C3%A9plica">contacto@licitacheck.cl</a>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Nivel de alerta</div>
+      <div id="risk-btns"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Región</div>
+      <select id="f-region"><option value="">Todas las regiones</option></select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tipo de licitación</div>
+      <select id="f-tipo"><option value="">Todos los tipos</option></select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Categoría (Nivel 1)</div>
+      <select id="f-nivel1"><option value="">Todas las categorías</option></select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Subcategoría (Nivel 2)</div>
+      <select id="f-nivel2"><option value="">Todas las subcategorías</option></select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Año de publicación</div>
+      <select id="f-year"><option value="">Todos los años</option></select>
+    </div>
+
+    <button id="reset-btn">↺ &nbsp;Limpiar filtros</button>
+
+    <div class="count-info">
+      <div class="section-title">Mostrando</div>
+      <div class="big" id="visible-count">—</div>
+      <div class="sub" id="visible-sub">—</div>
+    </div>
+
+    <div class="section" style="margin-top:22px;padding-top:16px;border-top:1px solid #EBEBEB;">
+      <div class="section-title">Glosario de alertas</div>
+      <p class="glosario-intro">Cada alerta es una señal objetiva calculada sobre datos públicos. No constituye una acusación; los organismos tienen derecho a réplica.</p>
+      <div id="glosario-list"></div>
+    </div>
+
+  </div>
+
+  <!-- GRAPH -->
+  <div id="graph-wrap">
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <h2>Cargando datos</h2>
+      <p>Procesando licitaciones…</p>
+    </div>
+
+    <div id="network"></div>
+
+    <div id="legend">
+      <div class="leg-title">Nivel de alerta</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--critico)"></div> Crítico</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--alto)"></div>    Alto</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--medio)"></div>   Medio</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--bajo)"></div>    Bajo</div>
+      <div style="border-top:1px solid var(--border);margin:7px 0;"></div>
+      <div class="leg-row"><div class="leg-org-dot"></div> Organismo comprador</div>
+    </div>
+
+    <div id="status"></div>
+
+    <!-- DETAIL PANEL -->
+    <div id="detail">
+      <button id="detail-close" onclick="closeDetail()">✕</button>
+      <div id="detail-content"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── SCRIPT ─────────────────────────────────────────────────── -->
+<script>
+/* ── Constants ────────────────────────────────────────────── */
+const MAX = 700;
+
+const RCOLOR = {
+  CRÍTICO: { background:'#B71C1C', border:'#7F0000', highlight:{ background:'#D32F2F', border:'#B71C1C' } },
+  ALTO:    { background:'#D84315', border:'#BF360C', highlight:{ background:'#FF5722', border:'#D84315' } },
+  MEDIO:   { background:'#F57C00', border:'#E65100', highlight:{ background:'#FFA726', border:'#F57C00' } },
+  BAJO:    { background:'#1565C0', border:'#0D47A1', highlight:{ background:'#1976D2', border:'#1565C0' } },
+};
+
+const ORG_C = {
+  background:'#ECEFF1', border:'#B0BEC5',
+  highlight:{ background:'#F5F5F5', border:'#90A4AE' }
+};
+
+const FLAGS = {
+  plazo_critico:       { icon:'⏱', name:'Plazo crítico (<5 días)',       desc:'Menos de 5 días corridos entre la fecha de publicación y la fecha de cierre.' },
+  plazo_apretado:      { icon:'⏰', name:'Plazo apretado (5-7 días)',     desc:'Entre 5 y 7 días corridos entre la fecha de publicación y la fecha de cierre.' },
+  plazo_corto:         { icon:'🕐', name:'Plazo corto (8-10 días)',       desc:'Entre 8 y 10 días corridos entre la fecha de publicación y la fecha de cierre.' },
+  plazo_limite_legal:  { icon:'⚖️', name:'Plazo al mínimo legal',         desc:'El plazo entre publicación y cierre es menor o igual al mínimo establecido por el Reglamento de Compras Públicas para el tipo de licitación (5, 10, 20 o 30 días).' },
+  cierre_post_weekend: { icon:'📅', name:'Cierre tras fin de semana',     desc:'Publicada un día viernes, con cierre el lunes o martes siguiente y plazo total menor o igual a 12 días corridos.' },
+  descripcion_corta:   { icon:'📝', name:'Descripción ultra-corta',       desc:'El campo "Descripción" de la licitación contiene menos de 50 caracteres.' },
+  privada:             { icon:'🔒', name:'Licitación privada',            desc:'El tipo de licitación corresponde a una modalidad privada (sin convocatoria pública general).' },
+  clonacion_intensa:   { icon:'🔁', name:'Fragmentación intra-día',       desc:'El mismo organismo publicó 2 o más licitaciones del mismo genérico en la misma fecha, todas con tipo "inferior a 100 UTM".' },
+  fragmentacion:       { icon:'✂️', name:'Fragmentación mensual',         desc:'El mismo organismo publicó 3 o más licitaciones del mismo genérico durante el mismo mes calendario, todas con tipo "inferior a 100 UTM" y sin concentrarse en un mismo día.' },
+  re_publicacion:      { icon:'🔄', name:'Re-publicación rápida',         desc:'El mismo organismo publicó otra licitación del mismo genérico dentro de los 14 días corridos anteriores.' },
+  proveedor_recurrente:{ icon:'👥', name:'Oferente recurrente',           desc:'El mismo oferente figura inscrito en 3 o más licitaciones del mismo organismo y genérico, existiendo otros oferentes distintos en el conjunto.' },
+  organismo_alto_riesgo: { icon:'🏛️', name:'Organismo con alertas frecuentes', desc:'El organismo comprador tiene 20% o más de sus licitaciones con nivel de alerta MEDIO o superior, sobre un total de al menos 5 licitaciones.' },
+};
+
+/* ── State ────────────────────────────────────────────────── */
+let DATA = null, ORGS = {}, network = null;
+let activeRisks = new Set(['CRÍTICO','ALTO','MEDIO','BAJO']);
+let debounce = null;
+
+/* ── Boot ─────────────────────────────────────────────────── */
+if (location.protocol === 'file:') {
+  document.getElementById('loading').innerHTML =
+    `<p style="color:#EF4444;font-size:13px;max-width:480px;text-align:center;line-height:1.6;">
+       Estás abriendo el archivo con <code>file://</code>. El navegador no permite <code>fetch()</code> de archivos locales por seguridad.<br><br>
+       Levantá el server desde la carpeta del proyecto:<br>
+       <code style="background:#F3F4F6;padding:3px 8px;border-radius:4px;display:inline-block;margin-top:6px;">python3 -m http.server 8080</code><br>
+       y abrí <code>http://localhost:8080/</code>
+     </p>`;
+} else {
+  fetch('data/graph_data.json?v=' + Date.now(), { cache: 'no-store' })
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status} al pedir data/graph_data.json`);
+      return r.json();
+    })
+    .then(d => {
+      const seen = new Set();
+      const before = d.licitaciones.length;
+      d.licitaciones = d.licitaciones.filter(l => {
+        if (seen.has(l.id)) return false;
+        seen.add(l.id);
+        return true;
+      });
+      if (d.licitaciones.length !== before) {
+        console.warn(`[LicitaCheck] Se eliminaron ${before - d.licitaciones.length} licitaciones duplicadas en el frontend.`);
+      }
+      DATA = d;
+      d.organismos.forEach(o => ORGS[o.id] = o);
+      buildUI(d);
+      render();
+      document.getElementById('loading').style.display = 'none';
+    })
+    .catch(err => {
+      console.error('[LicitaCheck] Error de carga:', err);
+      document.getElementById('loading').innerHTML =
+        `<p style="color:#EF4444;font-size:13px;max-width:480px;text-align:center;line-height:1.6;">
+           <b>Error al cargar el grafo</b><br><br>
+           <code style="background:#FEF2F2;padding:4px 8px;border-radius:4px;display:inline-block;color:#991B1B;">${err.message || err}</code><br><br>
+           <span style="color:#6B7280;">Abrí la consola del navegador (⌘⌥I) para más detalle.</span>
+         </p>`;
+    });
+}
+
+/* ── Build sidebar UI ─────────────────────────────────────── */
+function buildUI(d) {
+  // Stats header
+  const chips = [
+    { n: d.stats.total,   l:'Total',   c:'sp-total'   },
+    { n: d.stats.critico, l:'Crítico', c:'sp-critico' },
+    { n: d.stats.alto,    l:'Alto',    c:'sp-alto'    },
+    { n: d.stats.medio,   l:'Medio',   c:'sp-medio'   },
+    { n: d.stats.bajo,    l:'Bajo',    c:'sp-bajo'    },
+  ];
+  document.getElementById('stats-chips').innerHTML = chips.map(c =>
+    `<div class="stat-pill ${c.c}">
+       <span class="n">${c.n.toLocaleString('es-CL')}</span>
+       <span class="l">${c.l}</span>
+     </div>`).join('');
+
+  // Risk buttons
+  const rconf = [
+    { k:'CRÍTICO', cls:'rb-critico', label:'Crítico', cnt: d.stats.critico },
+    { k:'ALTO',    cls:'rb-alto',    label:'Alto',    cnt: d.stats.alto    },
+    { k:'MEDIO',   cls:'rb-medio',   label:'Medio',   cnt: d.stats.medio   },
+    { k:'BAJO',    cls:'rb-bajo',    label:'Bajo',    cnt: d.stats.bajo    },
+  ];
+  document.getElementById('risk-btns').innerHTML = rconf.map(r =>
+    `<button class="risk-btn ${r.cls}" data-r="${r.k}" onclick="toggleRisk('${r.k}',this)">
+       <span class="dot"></span>${r.label}
+       <span class="cnt">${r.cnt.toLocaleString('es-CL')}</span>
+     </button>`).join('');
+
+  // Selects
+  fillSelect('f-region', d.stats.regiones.map(r => ({ v:r.nombre, t:`${r.nombre} (${r.count})` })));
+
+  fillSelect('f-tipo', d.stats.tipos.map(t => ({
+    v: t.nombre,
+    t: abbreviateTipo(t.nombre) + ` (${t.count})`
+  })));
+
+  const n1 = {};
+  d.licitaciones.forEach(l => { if(l.nivel1) n1[l.nivel1] = (n1[l.nivel1]||0)+1; });
+  fillSelect('f-nivel1', Object.entries(n1)
+    .sort((a,b) => b[1]-a[1])
+    .map(([v,c]) => ({ v, t:`${v.substring(0,42)} (${c})` })));
+
+  const n2 = {};
+  d.licitaciones.forEach(l => { if(l.nivel2) n2[l.nivel2] = (n2[l.nivel2]||0)+1; });
+  fillSelect('f-nivel2', Object.entries(n2)
+    .sort((a,b) => b[1]-a[1])
+    .map(([v,c]) => ({ v, t:`${v.substring(0,50)} (${c})` })));
+
+  const years = [...new Set(d.licitaciones.map(l => l.fecha_pub.substring(0,4)))].sort().reverse();
+  fillSelect('f-year', years.map(y => ({ v:y, t:y })));
+
+  // Events
+  ['f-region','f-tipo','f-nivel1','f-nivel2','f-year'].forEach(id =>
+    document.getElementById(id).addEventListener('change', debouncedRender));
+  document.getElementById('q').addEventListener('input', debouncedRender);
+  document.getElementById('reset-btn').addEventListener('click', resetFilters);
+
+  // Glosario de alertas
+  document.getElementById('glosario-list').innerHTML = Object.entries(FLAGS).map(([k, f]) =>
+    `<div class="glosario-item">
+       <div class="glosario-icon">${f.icon}</div>
+       <div class="glosario-content">
+         <div class="glosario-name">${f.name}</div>
+         <div class="glosario-desc">${f.desc}</div>
+       </div>
+     </div>`).join('');
+}
+
+function fillSelect(id, opts) {
+  const el = document.getElementById(id);
+  opts.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.v; opt.textContent = o.t;
+    el.appendChild(opt);
+  });
+}
+
+function abbreviateTipo(t) {
+  return t
+    .replace('Licitación Pública igual o superior a ','LP ≥ ')
+    .replace('Licitación Pública Mayor a ','LP > ')
+    .replace('Licitación pública inferior a ','LP < ')
+    .replace('Licitación Privada igual o superior a ','LPriv ≥ ')
+    .replace('Licitación Privada inferior a ','LPriv < ');
+}
+
+/* ── Filters ──────────────────────────────────────────────── */
+function toggleRisk(risk, btn) {
+  activeRisks.has(risk) ? activeRisks.delete(risk) : activeRisks.add(risk);
+  btn.classList.toggle('off');
+  render();
+}
+
+function debouncedRender() {
+  clearTimeout(debounce);
+  debounce = setTimeout(render, 280);
+}
+
+function resetFilters() {
+  ['f-region','f-tipo','f-nivel1','f-nivel2','f-year'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('q').value = '';
+  activeRisks = new Set(['CRÍTICO','ALTO','MEDIO','BAJO']);
+  document.querySelectorAll('.risk-btn').forEach(b => b.classList.remove('off'));
+  render();
+}
+
+function getFiltered() {
+  const region = document.getElementById('f-region').value;
+  const tipo   = document.getElementById('f-tipo').value;
+  const nivel1 = document.getElementById('f-nivel1').value;
+  const nivel2 = document.getElementById('f-nivel2').value;
+  const year   = document.getElementById('f-year').value;
+  const q      = document.getElementById('q').value.toLowerCase().trim();
+
+  return DATA.licitaciones.filter(l => {
+    if (!activeRisks.has(l.riesgo)) return false;
+    if (region && l.region !== region) return false;
+    if (tipo   && l.tipo   !== tipo)   return false;
+    if (nivel1 && l.nivel1 !== nivel1) return false;
+    if (nivel2 && l.nivel2 !== nivel2) return false;
+    if (year   && !l.fecha_pub.startsWith(year)) return false;
+    if (q) {
+      const genericos = (l.genericos || []).join(' ').toLowerCase();
+      const hay =
+        l.nombre.toLowerCase().includes(q)    ||
+        l.organismo.toLowerCase().includes(q) ||
+        l.id.toLowerCase().includes(q)        ||
+        (l.nivel1 || '').toLowerCase().includes(q) ||
+        (l.nivel2 || '').toLowerCase().includes(q) ||
+        genericos.includes(q);
+      if (!hay) return false;
+    }
+    return true;
+  });
+}
+
+/* ── Render graph ─────────────────────────────────────────── */
+function render() {
+  if (!DATA) return;
+
+  const filtered = getFiltered();
+  const toShow   = filtered.sort((a,b) => b.score - a.score).slice(0, MAX);
+  const orgIds   = new Set(toShow.map(l => l.organismo_id));
+
+  const nodes = [], edges = [];
+
+  toShow.forEach(l => {
+    nodes.push({
+      id:    'L_' + l.id,
+      label: l.id,
+      title: tooltip(l),
+      color: RCOLOR[l.riesgo],
+      size:  9 + (l.score / 100) * 13,
+      shape: 'dot',
+      font:  { size:9, color:'#555', face:'Inter' },
+      _d: l, _t:'lic',
+    });
+    edges.push({
+      from:  'L_' + l.id,
+      to:    'O_' + l.organismo_id,
+      color: { color:'#D1D5DB', opacity:0.55 },
+      width: 0.7,
+      smooth:{ type:'continuous' },
+    });
+  });
+
+  orgIds.forEach(oid => {
+    const o = ORGS[oid]; if(!o) return;
+    const cnt = toShow.filter(l => l.organismo_id === oid).length;
+    nodes.push({
+      id:    'O_' + oid,
+      label: o.nombre.length > 22 ? o.nombre.slice(0,20)+'…' : o.nombre,
+      title: `<b>${o.nombre}</b><br>${cnt} licitaciones visibles`,
+      color: ORG_C,
+      size:  Math.min(13 + cnt * 1.6, 42),
+      shape: 'dot',
+      font:  { size:10, color:'#546E7A', face:'Inter' },
+      _d: o, _t:'org',
+    });
+  });
+
+  if (!network) {
+    network = new vis.Network(
+      document.getElementById('network'),
+      { nodes, edges },
+      {
+        physics:{
+          stabilization:{ iterations:180, updateInterval:20 },
+          barnesHut:{
+            gravitationalConstant:-3500,
+            centralGravity:0.18,
+            springLength:130,
+            springConstant:0.035,
+            damping:0.13,
+          },
+        },
+        nodes:{ borderWidth:2, shadow:{ enabled:true, color:'rgba(0,0,0,0.07)', size:9, x:2, y:2 } },
+        edges:{ arrows:{ to:{ enabled:false } } },
+        interaction:{ hover:true, tooltipDelay:80, hideEdgesOnDrag:true },
+      }
+    );
+    network.on('click', onNodeClick);
+  } else {
+    network.setData({ nodes, edges });
+  }
+
+  const visCount = document.getElementById('visible-count');
+  const visSub   = document.getElementById('visible-sub');
+  visCount.textContent = `${toShow.length.toLocaleString('es-CL')} licitaciones`;
+  visSub.textContent   = filtered.length > MAX
+    ? `de ${filtered.length.toLocaleString('es-CL')} filtradas (límite ${MAX})`
+    : `de ${filtered.length.toLocaleString('es-CL')} filtradas`;
+
+  document.getElementById('status').textContent =
+    `${toShow.length} licitaciones · ${orgIds.size} organismos`;
+}
+
+/* ── Tooltip ──────────────────────────────────────────────── */
+function tooltip(l) {
+  const fs = l.flags.map(f => FLAGS[f]?.name || f).join(', ') || 'Sin alertas';
+  return `<div style="font-family:Inter,sans-serif;font-size:11.5px;max-width:230px;padding:2px 0;line-height:1.5;">
+    <b style="font-size:12.5px;">${l.id}</b><br>
+    <span style="color:#6B7280;">${l.nombre.slice(0,80)}${l.nombre.length>80?'…':''}</span><br><br>
+    <b>Nivel:</b> ${l.riesgo}<br>
+    <b>Organismo:</b> ${l.organismo.slice(0,38)}<br>
+    <b>Región:</b> ${l.region}<br>
+    ${l.flags.length ? `<b style="color:#B91C1C;">Alertas:</b> ${fs}` : ''}
+  </div>`;
+}
+
+/* ── Node click ───────────────────────────────────────────── */
+function onNodeClick(p) {
+  if (!p.nodes.length) { closeDetail(); return; }
+  const nd = network.body.data.nodes.get(p.nodes[0]);
+  if (!nd) return;
+  nd._t === 'lic' ? showLic(nd._d) : showOrg(nd._d);
+}
+
+function showLic(l) {
+  const c  = RCOLOR[l.riesgo].background;
+  const bc = 'badge-' + {'CRÍTICO':'critico','ALTO':'alto','MEDIO':'medio','BAJO':'bajo'}[l.riesgo];
+
+  const review = l.agent_review || null;
+  const suppressed = new Set((review && review.flags_suprimidos) || []);
+  const activeFlags = l.flags.filter(f => !suppressed.has(f));
+  const supprFlags  = l.flags.filter(f =>  suppressed.has(f));
+
+  function flagCard(f, isSuppr) {
+    const info = FLAGS[f] || { icon:'⚠️', name:f, desc:'' };
+    return `<div class="flag-card${isSuppr ? ' suppressed' : ''}">
+      <div class="flag-icon">${info.icon}</div>
+      <div>
+        <div class="flag-name">${info.name}</div>
+        <div class="flag-desc">${info.desc}</div>
+      </div>
+    </div>`;
+  }
+
+  const flagsHtml = activeFlags.length
+    ? activeFlags.map(f => flagCard(f, false)).join('')
+    : (l.flags.length
+        ? '<div class="no-flags">Todas las alertas fueron contextualizadas por el análisis de IA.</div>'
+        : '<div class="no-flags">Sin alertas detectadas.</div>');
+
+  const ctxLabel = {
+    emergencia_sanitaria: 'Emergencia sanitaria',
+    proveedor_unico:      'Proveedor único',
+    continuidad_servicio: 'Continuidad de servicio',
+    correccion_formal:    'Corrección formal',
+    ninguno:              'Sin contexto suficiente',
+  };
+
+  const agentBlock = review ? `
+    <div class="agent-block">
+      <div class="agent-title">
+        🧠 Análisis contextual (IA)
+        ${review.contexto_detectado ? `<span class="agent-tag">${ctxLabel[review.contexto_detectado] || review.contexto_detectado}</span>` : ''}
+      </div>
+      <div class="agent-explain">${review.explicacion || ''}</div>
+      ${supprFlags.length ? `
+        <div class="agent-suppressed-list">
+          <div class="als-label">Alertas suprimidas por contexto (${supprFlags.length})</div>
+          ${supprFlags.map(f => flagCard(f, true)).join('')}
+        </div>` : ''}
+    </div>` : '';
+
+  const plazo = l.dias_plazo !== null ? `${l.dias_plazo} días hábiles` : 'No disponible';
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="badge ${bc}">
+      <span class="badge-dot" style="background:${c}"></span>
+      Nivel de alerta: ${l.riesgo}
+    </div>
+    <div class="detail-id"># ${l.id}</div>
+    <div class="detail-name">${l.nombre}</div>
+
+    ${l.descripcion ? `<div class="drow"><div class="dlbl">Descripción</div><div class="dval" style="font-style:italic;color:#4B5563;">${l.descripcion}</div></div>` : ''}
+    <div class="drow"><div class="dlbl">Organismo</div><div class="dval">${l.organismo}</div></div>
+    <div class="drow"><div class="dlbl">Región</div><div class="dval">${l.region}</div></div>
+    <div class="drow"><div class="dlbl">Tipo</div><div class="dval">${l.tipo}</div></div>
+    <div class="drow"><div class="dlbl">Publicación</div><div class="dval">${l.fecha_pub || '—'}</div></div>
+    <div class="drow"><div class="dlbl">Cierre &amp; plazo</div><div class="dval">${l.fecha_cierre || '—'} · ${plazo}</div></div>
+    <div class="drow"><div class="dlbl">Categoría</div><div class="dval">${l.nivel1 || '—'}</div></div>
+    <div class="drow"><div class="dlbl">Genérico</div><div class="dval">${l.generico || '—'}</div></div>
+    <div class="drow">
+      <div class="dlbl">Monto estimado</div>
+      <div class="dval" style="font-variant-numeric:tabular-nums;">
+        ${l.monto != null
+          ? `$${Math.round(l.monto).toLocaleString('es-CL')} CLP`
+          : `<span style="color:#9CA3AF;font-style:italic;">Sin información publicada en esta versión de los datos.</span>`}
+      </div>
+    </div>
+    <div class="drow">
+      <div class="dlbl">Oferentes registrados${l.oferentes && l.oferentes.length ? ` (${l.oferentes.length})` : ''}</div>
+      <div class="dval">
+        ${l.oferentes && l.oferentes.length
+          ? l.oferentes.map(o => `<div style="font-size:11.5px;color:#374151;line-height:1.45;padding:2px 0;">• ${o}</div>`).join('')
+          : `<span style="color:#9CA3AF;font-style:italic;">Sin información publicada en esta versión de los datos.</span>`}
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="flags-title">Alertas detectadas</div>
+    ${flagsHtml}
+    ${agentBlock}
+    <div class="disclaimer">
+      Las alertas son señales objetivas calculadas a partir de datos públicos de Mercado Público. No constituyen una acusación de irregularidad. El organismo comprador tiene derecho a réplica y puede aportar contexto que explique cada señal.
+    </div>
+  `;
+  document.getElementById('detail').classList.add('open');
+}
+
+function showOrg(o) {
+  const lics = DATA.licitaciones.filter(l => l.organismo_id === o.id);
+  const cnt  = { CRÍTICO:0, ALTO:0, MEDIO:0, BAJO:0 };
+  lics.forEach(l => cnt[l.riesgo]++);
+
+  const bars = [
+    { k:'CRÍTICO', c:'var(--critico)' },
+    { k:'ALTO',    c:'var(--alto)'    },
+    { k:'MEDIO',   c:'var(--medio)'   },
+    { k:'BAJO',    c:'var(--bajo)'    },
+  ].map(r => {
+    const pct = o.count > 0 ? Math.round((cnt[r.k] / o.count) * 100) : 0;
+    return `<div class="risk-bar-row">
+      <div class="risk-bar-head">
+        <span style="color:${r.c};font-weight:500;">${r.k}</span>
+        <span style="color:var(--muted);">${cnt[r.k]} &nbsp;(${pct}%)</span>
+      </div>
+      <div class="risk-bar-bg">
+        <div class="risk-bar-fg" style="width:${pct}%;background:${r.c};"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const tieneAlertas = (cnt['CRÍTICO'] + cnt['ALTO'] + cnt['MEDIO']) > 0;
+  const mailtoSubject = encodeURIComponent(`Derecho a réplica - ${o.nombre}`);
+  const contactCard = tieneAlertas ? `
+    <div class="contact-card-org">
+      <div class="cco-title">¿Representa a este organismo?</div>
+      <div class="cco-body">Algunas licitaciones de esta institución activaron alertas automáticas. Si desea aportar contexto, documentación o aclaraciones, puede ejercer su derecho a réplica.</div>
+      <a class="cco-btn" href="mailto:contacto@licitacheck.cl?subject=${mailtoSubject}">Solicitar derecho a réplica</a>
+    </div>` : '';
+
+  const tieneMonto = o.monto_total && o.monto_total > 0;
+  const montoBlock = `
+    <div class="org-monto" ${tieneMonto ? '' : 'style="background:#F9FAFB;border-color:#E5E7EB;"'}>
+      <div class="org-monto-label" ${tieneMonto ? '' : 'style="color:#6B7280;"'}>Monto estimado acumulado</div>
+      ${tieneMonto
+        ? `<div class="org-monto-val">$${Math.round(o.monto_total).toLocaleString('es-CL')} CLP</div>
+           <div class="org-monto-sub">Dato disponible en ${o.monto_count} de ${o.count} licitaciones</div>`
+        : `<div class="org-monto-val" style="color:#9CA3AF;font-size:12px;font-weight:500;font-style:italic;">Sin información publicada en esta versión de los datos</div>`}
+    </div>`;
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="org-header">
+      <div class="org-icon">🏛️</div>
+      <div class="org-name">${o.nombre}</div>
+      <div class="org-sub">${o.count.toLocaleString('es-CL')} licitaciones</div>
+    </div>
+    ${montoBlock}
+    <div class="divider"></div>
+    <div class="flags-title">Distribución de licitaciones por nivel de alerta</div>
+    ${bars}
+    ${contactCard}
+    <div class="disclaimer">
+      Los niveles agregan señales objetivas detectadas en datos públicos. No constituyen una acusación de irregularidad.
+    </div>
+  `;
+  document.getElementById('detail').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail').classList.remove('open');
+}
+</script>
+</body>
+</html>
