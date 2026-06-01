@@ -51,6 +51,9 @@ EXCEL_COLUMNS = [
 
 CACHE_FILE = Path(__file__).resolve().parent / '.crawler_cache.csv'
 
+# Columnas de fecha que deben quedar en un formato canónico único en el cache.
+DATE_COLUMNS = ['Fecha Publicación', 'Fecha Cierre']
+
 
 def log(msg, level='info'):
     ts = datetime.now().strftime('%H:%M:%S')
@@ -204,6 +207,26 @@ def load_cache(bootstrap_from=None):
     return pd.DataFrame(columns=EXCEL_COLUMNS)
 
 
+def normalize_dates(df):
+    """Unifica las columnas de fecha a ISO 8601 UTC ('YYYY-MM-DDTHH:MM:SSZ').
+
+    El cache acumula dos orígenes con formatos distintos en la MISMA columna:
+    el crawler OCDS trae ISO con 'T' y zona ('2025-12-31T11:13:21Z'); el Excel
+    bootstrap trae 'YYYY-MM-DD HH:MM:SS' (con espacio, sin zona). Esa mezcla
+    rompía el parseo aguas abajo en process_data.py, que infería un único
+    formato y convertía el resto a NaT en silencio — borrando dias_plazo y con
+    él todos los flags de plazo de miles de licitaciones. Normalizamos al
+    escribir para que la columna nunca quede mezclada. Las fechas inválidas o
+    ausentes quedan como cadena vacía.
+    """
+    for col in DATE_COLUMNS:
+        if col not in df.columns:
+            continue
+        parsed = pd.to_datetime(df[col], errors='coerce', utc=True, format='mixed')
+        df[col] = parsed.dt.strftime('%Y-%m-%dT%H:%M:%SZ').where(parsed.notna(), '')
+    return df
+
+
 def save_cache(df):
     df.to_csv(CACHE_FILE, index=False)
 
@@ -324,6 +347,9 @@ def main():
         subset=['Numero Adquisición', 'Descripción del producto/servicio'],
         keep='first'
     )
+
+    # Unifica el formato de fechas antes de persistir (ver normalize_dates).
+    merged = normalize_dates(merged)
 
     if args.incremental:
         save_cache(merged)

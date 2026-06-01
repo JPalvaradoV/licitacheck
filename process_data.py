@@ -62,9 +62,14 @@ def process():
 
     # ── Red Flag: Plazo graduado ─────────────────────────────────
     # Tres niveles según días corridos entre publicación y cierre.
-    # utc=True normaliza fechas con y sin timezone (Excel oficial vs OCDS)
-    df['fecha_pub']    = pd.to_datetime(df['fecha_pub'],    errors='coerce', utc=True).dt.tz_localize(None)
-    df['fecha_cierre'] = pd.to_datetime(df['fecha_cierre'], errors='coerce', utc=True).dt.tz_localize(None)
+    # utc=True normaliza fechas con y sin timezone (Excel oficial vs OCDS).
+    # format='mixed' es CRÍTICO: el cache combina dos formatos en la misma
+    # columna — ISO con 'T' (filas del crawler OCDS) y "YYYY-MM-DD HH:MM:SS"
+    # (filas del Excel bootstrap). Sin 'mixed', pandas infiere un único
+    # formato y convierte el resto a NaT en silencio, borrando dias_plazo
+    # y con él TODOS los flags de plazo de miles de licitaciones.
+    df['fecha_pub']    = pd.to_datetime(df['fecha_pub'],    errors='coerce', utc=True, format='mixed').dt.tz_localize(None)
+    df['fecha_cierre'] = pd.to_datetime(df['fecha_cierre'], errors='coerce', utc=True, format='mixed').dt.tz_localize(None)
     df['dias_plazo']   = (df['fecha_cierre'] - df['fecha_pub']).dt.days
 
     def plazo_nivel(x):
